@@ -8,7 +8,7 @@ import plotly.express as px
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
 # =====================
-# CSS DEFINITIVO
+# CSS
 # =====================
 st.markdown("""
 <style>
@@ -181,6 +181,50 @@ fig_saldo.update_layout(
 )
 
 st.plotly_chart(fig_saldo, use_container_width=True)
+
+# =====================
+# DESPESAS POR SUBCATEGORIA
+# =====================
+st.subheader("Onde o dinheiro está indo")
+
+df_cat = (
+    df_f[df_f["categoria"] == "despesa"]
+    .groupby("subcategoria")["valor"]
+    .sum()
+    .reset_index()
+    .sort_values("valor", ascending=False)
+)
+
+fig_cat = px.bar(df_cat, x="subcategoria", y="valor", title="Despesas por Subcategoria")
+st.plotly_chart(fig_cat, use_container_width=True)
+
+fig_pie = px.pie(df_cat, names="subcategoria", values="valor", title="Distribuição das Despesas")
+st.plotly_chart(fig_pie, use_container_width=True)
+
+# =====================
+# DESPESAS POR DETALHE
+# =====================
+st.subheader("Gastos por Detalhe")
+
+df_det = (
+    df_f[df_f["categoria"] == "despesa"]
+    .groupby("detalhe")["valor"]
+    .sum()
+    .reset_index()
+    .sort_values("valor", ascending=False)
+)
+
+fig_det = px.bar(df_det, x="detalhe", y="valor", title="Gastos por Detalhe")
+st.plotly_chart(fig_det, use_container_width=True)
+
+# =====================
+# STATUS
+# =====================
+st.subheader("Status dos Lançamentos")
+
+df_status = df_f.groupby("status")["valor"].sum().reset_index()
+fig_status = px.pie(df_status, names="status", values="valor", title="Status Financeiro")
+st.plotly_chart(fig_status, use_container_width=True)
 
 # =====================
 # TABELA FINAL
