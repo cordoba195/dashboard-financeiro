@@ -2,6 +2,12 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+# =====================
+# FORMATAÇÃO DE NÚMEROS 
+# =====================
+def formato_br(valor):
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
 # =====================
@@ -9,6 +15,9 @@ st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 # =====================
 GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSctKxjmf-ReJi0mEun2i5wZP72qdwf9HOeU-CSXS12xk7-tT5qhrPH0lRGcnlGimYcS2rgC_EWu9oO/pub?output=csv"
 
+# =====================
+# ATUALIZAÇÃO A CADA 60 SEG
+# =====================
 @st.cache_data(ttl=60)  # atualiza automaticamente a cada 60s
 def carregar_dados():
     df = pd.read_csv(GOOGLE_SHEETS_URL)
@@ -39,7 +48,6 @@ df["valor"] = (
 )
 
 df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-
 
 # =====================
 # FILTROS (LISTAS)
@@ -75,10 +83,10 @@ saldo = receitas - despesas
 ticket_medio = despesas / max(1, len(df_f[df_f["categoria"] == "despesa"]))
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Receitas", f"R$ {receitas:,.2f}")
-c2.metric("Despesas", f"R$ {despesas:,.2f}")
-c3.metric("Saldo", f"R$ {saldo:,.2f}")
-c4.metric("Ticket Médio Despesas", f"R$ {ticket_medio:,.2f}")
+c1.metric("Receitas", formato_br(receitas))
+c2.metric("Despesas", formato_br(despesas))
+c3.metric("Saldo", formato_br(saldo))
+c4.metric("Ticket Médio Despesas", formato_br(ticket_medio))
 
 # =====================
 # EVOLUÇÃO TEMPORAL
@@ -188,4 +196,5 @@ st.dataframe(
     df_f.sort_values(["mes_ano_ref", "valor"], ascending=[False, False]),
     use_container_width=True
 )
+
 
