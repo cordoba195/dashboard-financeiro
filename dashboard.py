@@ -1,20 +1,20 @@
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from pathlib import Path
 
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
 # =====================
-# LEITURA DO ARQUIVO
+# GOOGLE SHEETS (CSV PUBLICADO)
 # =====================
-arquivo = Path("registro_financeiro.xlsx")
+GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSctKxjmf-ReJi0mEun2i5wZP72qdwf9HOeU-CSXS12xk7-tT5qhrPH0lRGcnlGimYcS2rgC_EWu9oO/pub?output=csv"
 
-if not arquivo.exists():
-    st.error("Arquivo registro_financeiro.xlsx não encontrado.")
-    st.stop()
+@st.cache_data(ttl=60)  # atualiza automaticamente a cada 60s
+def carregar_dados():
+    df = pd.read_csv(GOOGLE_SHEETS_URL)
+    return df
 
-df = pd.read_excel(arquivo)
+df = carregar_dados()
 
 # =====================
 # NORMALIZAÇÃO
@@ -23,7 +23,8 @@ df.columns = df.columns.str.lower().str.strip()
 
 df["mes_ano_ref"] = pd.to_datetime(df["mes_ano_ref"])
 df["mes"] = df["mes_ano_ref"].dt.strftime("%Y-%m")
-df["categoria"] = df["categoria"].str.lower()
+
+df["categoria"] = df["categoria"].astype(str).str.lower()
 df["subcategoria"] = df["subcategoria"].fillna("outros")
 df["status"] = df["status"].fillna("indefinido")
 df["detalhe"] = df["detalhe"].fillna("não informado")
@@ -35,31 +36,15 @@ df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
 # =====================
 st.sidebar.header("Filtros")
 
-# Lista de meses
 lista_meses = ["Todos"] + sorted(df["mes"].unique().tolist())
-mes_selecionado = st.sidebar.selectbox(
-    "Mês/Ano",
-    lista_meses,
-    index=0
-)
+mes_selecionado = st.sidebar.selectbox("Mês/Ano", lista_meses)
 
-# Lista de categorias
 lista_categorias = ["Todos"] + sorted(df["categoria"].unique().tolist())
-categoria_selecionada = st.sidebar.selectbox(
-    "Categoria",
-    lista_categorias,
-    index=0
-)
+categoria_selecionada = st.sidebar.selectbox("Categoria", lista_categorias)
 
-# Lista de status
 lista_status = ["Todos"] + sorted(df["status"].unique().tolist())
-status_selecionado = st.sidebar.selectbox(
-    "Status",
-    lista_status,
-    index=0
-)
+status_selecionado = st.sidebar.selectbox("Status", lista_status)
 
-# Aplicação dos filtros
 df_f = df.copy()
 
 if mes_selecionado != "Todos":
@@ -72,7 +57,7 @@ if status_selecionado != "Todos":
     df_f = df_f[df_f["status"] == status_selecionado]
 
 # =====================
-# KPIs PRINCIPAIS
+# KPIs
 # =====================
 receitas = df_f[df_f["categoria"] == "receita"]["valor"].sum()
 despesas = df_f[df_f["categoria"] == "despesa"]["valor"].sum()
@@ -86,15 +71,17 @@ c3.metric("Saldo", f"R$ {saldo:,.2f}")
 c4.metric("Ticket Médio Despesas", f"R$ {ticket_medio:,.2f}")
 
 # =====================
-# ANÁLISE TEMPORAL
+# EVOLUÇÃO TEMPORAL
 # =====================
 st.subheader("Evolução Financeira")
 
 df_mes = (
-    df_f
-    .assign(valor_calc=lambda x: x.apply(
-        lambda r: r["valor"] if r["categoria"] == "receita" else -r["valor"], axis=1
-    ))
+    df_f.assign(
+        valor_calc=lambda x: x.apply(
+            lambda r: r["valor"] if r["categoria"] == "receita" else -r["valor"],
+            axis=1
+        )
+    )
     .groupby("mes")["valor_calc"]
     .sum()
     .reset_index()
@@ -110,7 +97,7 @@ fig_saldo = px.line(
 st.plotly_chart(fig_saldo, use_container_width=True)
 
 # =====================
-# COMPOSIÇÃO DAS DESPESAS
+# DESPESAS POR CATEGORIA
 # =====================
 st.subheader("Onde o dinheiro está indo")
 
@@ -143,9 +130,9 @@ with col2:
     st.plotly_chart(fig_pie, use_container_width=True)
 
 # =====================
-# CARTÃO / DETALHE
+# DESPESAS POR DETALHE
 # =====================
-st.subheader("Despesas por Detalhe (ex: cartão, banco)")
+st.subheader("Despesas por Detalhe")
 
 df_det = (
     df_f[df_f["categoria"] == "despesa"]
@@ -164,13 +151,12 @@ fig_det = px.bar(
 st.plotly_chart(fig_det, use_container_width=True)
 
 # =====================
-# STATUS FINANCEIRO
+# STATUS
 # =====================
 st.subheader("Status dos Lançamentos")
 
 df_status = (
-    df_f
-    .groupby("status")["valor"]
+    df_f.groupby("status")["valor"]
     .sum()
     .reset_index()
 )
@@ -184,9 +170,10 @@ fig_status = px.pie(
 st.plotly_chart(fig_status, use_container_width=True)
 
 # =====================
-# TABELA ANALÍTICA
+# TABELA
 # =====================
 st.subheader("Tabela Analítica")
+
 st.dataframe(
     df_f.sort_values(["mes_ano_ref", "valor"], ascending=[False, False]),
     use_container_width=True
