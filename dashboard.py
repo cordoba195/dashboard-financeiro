@@ -3,9 +3,58 @@ import streamlit as st
 import plotly.express as px
 
 # =====================
-# CONFIGURAÇÃO
+# CONFIGURAÇÃO GERAL
 # =====================
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
+
+# =====================
+# FUNÇÕES DE LOGIN
+# =====================
+def autenticar(usuario, senha):
+    users = st.secrets["auth"]["users"]
+    passwords = st.secrets["auth"]["passwords"]
+
+    if usuario in users:
+        idx = users.index(usuario)
+        return senha == passwords[idx]
+    return False
+
+
+def tela_login():
+    st.title("Acesso Restrito")
+    st.write("Faça login para acessar o dashboard")
+
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
+
+    if st.button("Entrar"):
+        if autenticar(usuario, senha):
+            st.session_state["autenticado"] = True
+            st.session_state["usuario"] = usuario
+            st.rerun()
+        else:
+            st.error("Usuário ou senha inválidos")
+
+
+# =====================
+# CONTROLE DE SESSÃO
+# =====================
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+
+if not st.session_state["autenticado"]:
+    tela_login()
+    st.stop()
+
+# =====================
+# BOTÃO LOGOUT
+# =====================
+with st.sidebar:
+    st.write(f"Usuário: {st.session_state['usuario']}")
+    if st.button("Sair"):
+        st.session_state["autenticado"] = False
+        st.session_state.pop("usuario", None)
+        st.rerun()
 
 # =====================
 # CSS
@@ -19,7 +68,6 @@ st.markdown("""
     background-color: rgba(255,255,255,0.03);
     margin-bottom: 16px;
 }
-
 .card {
     border: 1px solid #555;
     border-radius: 12px;
@@ -27,7 +75,6 @@ st.markdown("""
     background-color: rgba(255,255,255,0.03);
     margin-bottom: 16px;
 }
-
 div.stPlotlyChart {
     border: 1px solid #555;
     border-radius: 12px;
@@ -40,7 +87,7 @@ div.stPlotlyChart {
 """, unsafe_allow_html=True)
 
 # =====================
-# FORMATO BR
+# FUNÇÃO FORMATO BR
 # =====================
 def formato_br(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -124,26 +171,6 @@ with c3: st.markdown(f"<div class='kpi-card'><h4>Saldo</h4><h2>{formato_br(saldo
 with c4: st.markdown(f"<div class='kpi-card'><h4>Ticket Médio</h4><h2>{formato_br(ticket)}</h2></div>", unsafe_allow_html=True)
 
 # =====================
-# RESUMO FINANCEIRO
-# =====================
-taxa = saldo / receitas if receitas else 0
-
-if taxa >= 0.2:
-    nivel, texto = "BOA", "Boa margem financeira."
-elif taxa > 0:
-    nivel, texto = "ATENÇÃO", "Saldo positivo, mas margem apertada."
-else:
-    nivel, texto = "CRÍTICA", "Despesas superam a receita."
-
-st.markdown(f"""
-<div class='card'>
-<h4>Resumo Financeiro</h4>
-<p><b>Saúde financeira:</b> {nivel}</p>
-<p>{texto}</p>
-</div>
-""", unsafe_allow_html=True)
-
-# =====================
 # EVOLUÇÃO FINANCEIRA
 # =====================
 st.subheader("Evolução Financeira")
@@ -195,11 +222,8 @@ df_cat = (
     .sort_values("valor", ascending=False)
 )
 
-fig_cat = px.bar(df_cat, x="subcategoria", y="valor", title="Despesas por Subcategoria")
-st.plotly_chart(fig_cat, use_container_width=True)
-
-fig_pie = px.pie(df_cat, names="subcategoria", values="valor", title="Distribuição das Despesas")
-st.plotly_chart(fig_pie, use_container_width=True)
+st.plotly_chart(px.bar(df_cat, x="subcategoria", y="valor"), use_container_width=True)
+st.plotly_chart(px.pie(df_cat, names="subcategoria", values="valor"), use_container_width=True)
 
 # =====================
 # DESPESAS POR DETALHE
@@ -214,8 +238,7 @@ df_det = (
     .sort_values("valor", ascending=False)
 )
 
-fig_det = px.bar(df_det, x="detalhe", y="valor", title="Gastos por Detalhe")
-st.plotly_chart(fig_det, use_container_width=True)
+st.plotly_chart(px.bar(df_det, x="detalhe", y="valor"), use_container_width=True)
 
 # =====================
 # STATUS
@@ -223,8 +246,7 @@ st.plotly_chart(fig_det, use_container_width=True)
 st.subheader("Status dos Lançamentos")
 
 df_status = df_f.groupby("status")["valor"].sum().reset_index()
-fig_status = px.pie(df_status, names="status", values="valor", title="Status Financeiro")
-st.plotly_chart(fig_status, use_container_width=True)
+st.plotly_chart(px.pie(df_status, names="status", values="valor"), use_container_width=True)
 
 # =====================
 # TABELA FINAL
