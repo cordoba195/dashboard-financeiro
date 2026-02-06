@@ -29,7 +29,17 @@ df["subcategoria"] = df["subcategoria"].fillna("outros")
 df["status"] = df["status"].fillna("indefinido")
 df["detalhe"] = df["detalhe"].fillna("não informado")
 
+df["valor"] = (
+    df["valor"]
+    .astype(str)
+    .str.replace("R$", "", regex=False)
+    .str.replace(".", "", regex=False)
+    .str.replace(",", ".", regex=False)
+    .str.strip()
+)
+
 df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+
 
 # =====================
 # FILTROS (LISTAS)
@@ -178,3 +188,4 @@ st.dataframe(
     df_f.sort_values(["mes_ano_ref", "valor"], ascending=[False, False]),
     use_container_width=True
 )
+
