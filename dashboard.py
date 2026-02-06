@@ -2,22 +2,49 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
+# =====================
+# CONFIGURAÇÃO GERAL
+# =====================
+st.set_page_config(
+    page_title="Dashboard Financeiro",
+    layout="wide"
+)
 
 # =====================
-# CSS – CARDS CORRETOS
+# CSS DEFINITIVO (STREAMLIT + PLOTLY)
 # =====================
 st.markdown("""
 <style>
+/* KPI Cards */
+.kpi-card {
+    border: 1px solid #555;
+    border-radius: 12px;
+    padding: 16px;
+    background-color: rgba(255,255,255,0.03);
+    margin-bottom: 16px;
+}
+
+/* Card texto */
 .card {
+    border: 1px solid #555;
+    border-radius: 12px;
+    padding: 16px;
+    background-color: rgba(255,255,255,0.03);
+    margin-bottom: 16px;
+}
+
+/* Plotly container REAL */
+div.stPlotlyChart {
     border: 1px solid #555;
     border-radius: 12px;
     padding: 12px;
     background-color: rgba(255,255,255,0.03);
     margin-bottom: 16px;
+    overflow: hidden;
 }
-.card iframe {
-    border-radius: 10px;
+
+div.stPlotlyChart iframe {
+    border-radius: 8px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -29,7 +56,7 @@ def formato_br(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # =====================
-# GOOGLE SHEETS
+# GOOGLE SHEETS (CSV)
 # =====================
 GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSctKxjmf-ReJi0mEun2i5wZP72qdwf9HOeU-CSXS12xk7-tT5qhrPH0lRGcnlGimYcS2rgC_EWu9oO/pub?output=csv"
 
@@ -80,12 +107,8 @@ lista_meses = ["Todos"] + sorted(
 )
 
 mes_sel = st.sidebar.selectbox("Mês/Ano", lista_meses)
-
-lista_cat = ["Todos"] + sorted(df["categoria"].unique().tolist())
-cat_sel = st.sidebar.selectbox("Categoria", lista_cat)
-
-lista_status = ["Todos"] + sorted(df["status"].unique().tolist())
-status_sel = st.sidebar.selectbox("Status", lista_status)
+cat_sel = st.sidebar.selectbox("Categoria", ["Todos"] + sorted(df["categoria"].unique()))
+status_sel = st.sidebar.selectbox("Status", ["Todos"] + sorted(df["status"].unique()))
 
 df_f = df.copy()
 
@@ -109,28 +132,28 @@ ticket_medio = despesas / max(1, len(df_f[df_f["categoria"] == "despesa"]))
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    st.markdown(f"<div class='card'><h4>Receitas</h4><h2>{formato_br(receitas)}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi-card'><h4>Receitas</h4><h2>{formato_br(receitas)}</h2></div>", unsafe_allow_html=True)
 with c2:
-    st.markdown(f"<div class='card'><h4>Despesas</h4><h2>{formato_br(despesas)}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi-card'><h4>Despesas</h4><h2>{formato_br(despesas)}</h2></div>", unsafe_allow_html=True)
 with c3:
-    st.markdown(f"<div class='card'><h4>Saldo</h4><h2>{formato_br(saldo)}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi-card'><h4>Saldo</h4><h2>{formato_br(saldo)}</h2></div>", unsafe_allow_html=True)
 with c4:
-    st.markdown(f"<div class='card'><h4>Ticket Médio</h4><h2>{formato_br(ticket_medio)}</h2></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='kpi-card'><h4>Ticket Médio</h4><h2>{formato_br(ticket_medio)}</h2></div>", unsafe_allow_html=True)
 
 # =====================
-# RESUMO FINANCEIRO
+# RESUMO FINANCEIRO (IA)
 # =====================
 taxa = saldo / receitas if receitas > 0 else 0
 
 if taxa >= 0.2:
     saude = "BOA"
-    texto = "Você mantém uma taxa de poupança saudável e controle consistente das despesas."
+    texto = "Sua situação financeira é saudável, com boa margem de segurança."
 elif taxa > 0:
     saude = "ATENÇÃO"
     texto = "Seu saldo é positivo, mas a margem financeira é apertada."
 else:
     saude = "CRÍTICA"
-    texto = "As despesas consomem toda ou mais do que a receita."
+    texto = "As despesas consomem toda ou mais do que a sua receita."
 
 st.markdown(f"""
 <div class='card'>
@@ -167,39 +190,26 @@ fig_saldo = px.line(
     category_orders={"mes_label": df_mes["mes_label"].tolist()}
 )
 
-with st.container():
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.plotly_chart(fig_saldo, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+st.plotly_chart(fig_saldo, use_container_width=True)
 
 # =====================
-# DESPESAS POR CATEGORIA
+# DESPESAS POR SUBCATEGORIA
 # =====================
 st.subheader("Onde o dinheiro está indo")
 
-col1, col2 = st.columns(2)
+df_cat = (
+    df_f[df_f["categoria"] == "despesa"]
+    .groupby("subcategoria")["valor"]
+    .sum()
+    .reset_index()
+    .sort_values("valor", ascending=False)
+)
 
-with col1:
-    df_cat = (
-        df_f[df_f["categoria"] == "despesa"]
-        .groupby("subcategoria")["valor"]
-        .sum()
-        .reset_index()
-        .sort_values("valor", ascending=False)
-    )
+fig_cat = px.bar(df_cat, x="subcategoria", y="valor", title="Despesas por Subcategoria")
+st.plotly_chart(fig_cat, use_container_width=True)
 
-    fig_cat = px.bar(df_cat, x="subcategoria", y="valor", title="Despesas por Subcategoria")
-    with st.container():
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.plotly_chart(fig_cat, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-with col2:
-    fig_pie = px.pie(df_cat, names="subcategoria", values="valor", title="Distribuição das Despesas")
-    with st.container():
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+fig_pie = px.pie(df_cat, names="subcategoria", values="valor", title="Distribuição das Despesas")
+st.plotly_chart(fig_pie, use_container_width=True)
 
 # =====================
 # DESPESAS POR DETALHE
@@ -215,11 +225,7 @@ df_det = (
 )
 
 fig_det = px.bar(df_det, x="detalhe", y="valor", title="Gastos por Detalhe")
-
-with st.container():
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.plotly_chart(fig_det, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+st.plotly_chart(fig_det, use_container_width=True)
 
 # =====================
 # STATUS
@@ -228,11 +234,7 @@ st.subheader("Status dos Lançamentos")
 
 df_status = df_f.groupby("status")["valor"].sum().reset_index()
 fig_status = px.pie(df_status, names="status", values="valor", title="Status Financeiro")
-
-with st.container():
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.plotly_chart(fig_status, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+st.plotly_chart(fig_status, use_container_width=True)
 
 # =====================
 # TABELA FINAL
