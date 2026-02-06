@@ -11,6 +11,21 @@ def formato_br(valor):
 st.set_page_config(page_title="Dashboard Financeiro", layout="wide")
 
 # =====================
+# BORDAS COM CANTOS ARREDONDADOS
+# =====================
+st.markdown("""
+<style>
+.card {
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 16px;
+    background-color: rgba(255,255,255,0.02);
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# =====================
 # GOOGLE SHEETS (CSV PUBLICADO)
 # =====================
 GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSctKxjmf-ReJi0mEun2i5wZP72qdwf9HOeU-CSXS12xk7-tT5qhrPH0lRGcnlGimYcS2rgC_EWu9oO/pub?output=csv"
@@ -31,7 +46,8 @@ df = carregar_dados()
 df.columns = df.columns.str.lower().str.strip()
 
 df["mes_ano_ref"] = pd.to_datetime(df["mes_ano_ref"])
-df["mes"] = df["mes_ano_ref"].dt.strftime("%Y-%m")
+df["mes_ordem"] = df["mes_ano_ref"].dt.to_period("M").dt.to_timestamp()
+df["mes_label"] = df["mes_ano_ref"].dt.strftime("%b/%y").str.lower()
 
 df["categoria"] = df["categoria"].astype(str).str.lower()
 df["subcategoria"] = df["subcategoria"].fillna("outros")
@@ -83,10 +99,44 @@ saldo = receitas - despesas
 ticket_medio = despesas / max(1, len(df_f[df_f["categoria"] == "despesa"]))
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Receitas", formato_br(receitas))
-c2.metric("Despesas", formato_br(despesas))
-c3.metric("Saldo", formato_br(saldo))
-c4.metric("Ticket Médio Despesas", formato_br(ticket_medio))
+
+with c1:
+    st.markdown(f"<div class='card'><h4>Receitas</h4><h2>{formato_br(receitas)}</h2></div>", unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"<div class='card'><h4>Despesas</h4><h2>{formato_br(despesas)}</h2></div>", unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"<div class='card'><h4>Saldo</h4><h2>{formato_br(saldo)}</h2></div>", unsafe_allow_html=True)
+
+with c4:
+    st.markdown(f"<div class='card'><h4>Ticket Médio</h4><h2>{formato_br(ticket_medio)}</h2></div>", unsafe_allow_html=True)
+
+# =====================
+# RESUMO EM IA
+# =====================
+taxa_poupanca = saldo / receitas if receitas > 0 else 0
+
+if taxa_poupanca >= 0.2:
+    saude = "boa"
+    diagnostico = "Você mantém uma taxa de poupança saudável, com controle consistente das despesas."
+elif 0 < taxa_poupanca < 0.2:
+    saude = "atenção"
+    diagnostico = "Sua margem financeira é positiva, mas apertada. Pequenos desvios podem comprometer o saldo."
+else:
+    saude = "crítica"
+    diagnostico = "As despesas superam ou quase anulam as receitas, indicando risco financeiro."
+
+st.markdown(
+    f"""
+    <div class='card'>
+        <h4>Resumo Inteligente</h4>
+        <p><b>Saúde financeira:</b> {saude.upper()}</p>
+        <p>{diagnostico}</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =====================
 # EVOLUÇÃO TEMPORAL
@@ -100,19 +150,22 @@ df_mes = (
             axis=1
         )
     )
-    .groupby("mes")["valor_calc"]
+    .groupby(["mes_ordem", "mes_label"])["valor_calc"]
     .sum()
     .reset_index()
+    .sort_values("mes_ordem")
 )
 
 fig_saldo = px.line(
     df_mes,
-    x="mes",
+    x="mes_label",
     y="valor_calc",
     markers=True,
-    title="Saldo Mensal"
+    title="Evolução do Saldo Mensal"
 )
+st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.plotly_chart(fig_saldo, use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================
 # DESPESAS POR CATEGORIA
@@ -136,7 +189,10 @@ with col1:
         y="valor",
         title="Despesas por Subcategoria"
     )
-    st.plotly_chart(fig_cat, use_container_width=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.plotly_chart(fig_cat, use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
 
 with col2:
     fig_pie = px.pie(
@@ -145,7 +201,10 @@ with col2:
         values="valor",
         title="Distribuição Percentual das Despesas"
     )
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.plotly_chart(fig_pie, use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
 
 # =====================
 # DESPESAS POR DETALHE
@@ -166,7 +225,10 @@ fig_det = px.bar(
     y="valor",
     title="Gastos por Detalhe"
 )
+st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.plotly_chart(fig_det, use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
 
 # =====================
 # STATUS
@@ -185,7 +247,9 @@ fig_status = px.pie(
     values="valor",
     title="Pago x Pendente"
 )
+st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.plotly_chart(fig_status, use_container_width=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================
 # TABELA
@@ -196,5 +260,6 @@ st.dataframe(
     df_f.sort_values(["mes_ano_ref", "valor"], ascending=[False, False]),
     use_container_width=True
 )
+
 
 
