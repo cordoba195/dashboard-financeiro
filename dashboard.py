@@ -11,11 +11,10 @@ st.set_page_config(
 )
 
 # =====================
-# CSS DEFINITIVO (STREAMLIT + PLOTLY)
+# CSS DEFINITIVO
 # =====================
 st.markdown("""
 <style>
-/* KPI Cards */
 .kpi-card {
     border: 1px solid #555;
     border-radius: 12px;
@@ -24,7 +23,6 @@ st.markdown("""
     margin-bottom: 16px;
 }
 
-/* Card texto */
 .card {
     border: 1px solid #555;
     border-radius: 12px;
@@ -33,7 +31,6 @@ st.markdown("""
     margin-bottom: 16px;
 }
 
-/* Plotly container REAL */
 div.stPlotlyChart {
     border: 1px solid #555;
     border-radius: 12px;
@@ -56,7 +53,7 @@ def formato_br(valor):
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # =====================
-# GOOGLE SHEETS (CSV)
+# GOOGLE SHEETS
 # =====================
 GOOGLE_SHEETS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSctKxjmf-ReJi0mEun2i5wZP72qdwf9HOeU-CSXS12xk7-tT5qhrPH0lRGcnlGimYcS2rgC_EWu9oO/pub?output=csv"
 
@@ -141,7 +138,7 @@ with c4:
     st.markdown(f"<div class='kpi-card'><h4>Ticket Médio</h4><h2>{formato_br(ticket_medio)}</h2></div>", unsafe_allow_html=True)
 
 # =====================
-# RESUMO FINANCEIRO (IA)
+# RESUMO FINANCEIRO
 # =====================
 taxa = saldo / receitas if receitas > 0 else 0
 
@@ -185,8 +182,18 @@ fig_saldo = px.line(
     df_mes,
     x="mes_label",
     y="valor_calc",
-    markers=True,
-    title="Evolução do Saldo Mensal",
+    markers=True
+)
+
+fig_saldo.update_layout(
+    title=dict(
+        text="Evolução do Saldo Mensal",
+        x=0.02,
+        y=0.95,
+        xanchor="left",
+        yanchor="top"
+    ),
+    margin=dict(t=80, l=40, r=40, b=40),
     category_orders={"mes_label": df_mes["mes_label"].tolist()}
 )
 
